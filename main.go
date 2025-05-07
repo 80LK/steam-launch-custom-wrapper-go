@@ -63,19 +63,19 @@ func prepareArgs() (bool, string, string, []string) {
 
 func main() {
 	var parsed, execute, workdir, args = prepareArgs()
-
-	if parsed {
-		var cmd = exec.Command(execute, args...)
-		cmd.Dir = workdir
-
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-
-		fmt.Printf(`Run "%s" in directory "%s" with arguments [%s]`, execute, workdir, strings.Join(args, ", "))
-		if err := cmd.Run(); err != nil {
-			fmt.Println("Error:", err)
-		}
-	} else {
+	if !parsed {
 		fmt.Printf("Steam-Launch-Custom-Wrapper %s\nUsage:\n\twrapper [execute] <--wd=[wordir]> <launch args>", VERSION)
+		return
+	}
+
+	var cmd = exec.Command(execute, args...)
+	cmd.Dir = workdir
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	fmt.Printf(`Run "%s" in directory "%s" with arguments [%s]`, execute, workdir, strings.Join(args, ", "))
+	if err := cmd.Run(); err != nil {
+		fmt.Println("Error:", err)
 	}
 }
