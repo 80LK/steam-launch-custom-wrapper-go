@@ -35,7 +35,11 @@ var BuildCommand = &cobra.Command{
 	},
 }
 
+func addBuildFlag(cmd *cobra.Command) {
+	cmd.Flags().StringP(_OUTPUT_FLAG, _OUTPUT_FLAG_P, "slc_wrapper.exe", "Output file name")
+}
+
 func init() {
-	BuildCommand.Flags().StringP(_OUTPUT_FLAG, _OUTPUT_FLAG_P, "slc_wrapper.exe", "Output file name")
+	addBuildFlag(BuildCommand)
 	RootCommand.AddCommand(BuildCommand)
 }

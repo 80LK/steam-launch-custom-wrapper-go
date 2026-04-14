@@ -57,16 +57,22 @@ func validKeyword(value string) bool {
 }
 
 var VersionCommand = &cobra.Command{
-	Use:   "version <" + strings.Join(_VERSION_KEYWORDS, "|") + "|version>",
-	Short: "Short version",
-	Long:  "Long version",
+	Use:   "version <" + strings.Join(_VERSION_KEYWORDS, "|") + "|<version>>",
+	Short: "Update version app",
+	Long: `Update version app
+	` + strings.Join(_VERSION_KEYWORDS, ", ") + ` - update version by semantic
+	<version> - set version. Must match semantics`,
 	Args: func(cmd *cobra.Command, args []string) error {
+		err := cobra.MinimumNArgs(1)(cmd, args)
+		if err != nil {
+			return err
+		}
 		raw_version := strings.ToLower(args[0])
 		if validKeyword(raw_version) {
 			return nil
 		}
 
-		_, err := version.Parse(raw_version)
+		_, err = version.Parse(raw_version)
 		if err == nil {
 			return nil
 		}
@@ -107,27 +113,40 @@ var VersionCommand = &cobra.Command{
 
 		err = os.WriteFile(VERSION_FILE, []byte(raw_version), 0644)
 		if err != nil {
-			return err
+			return fmt.Errorf("Failure write version file: %v", err)
 		}
 
 		err = exec.Command("git", "add", VERSION_FILE).Run()
 		if err != nil {
-			return err
+			return fmt.Errorf("Failure git add: %v", err)
 		}
 		err = exec.Command("git", "commit", "-m", raw_version).Run()
 		if err != nil {
-			return err
+			return fmt.Errorf("Failure git commit: %v", err)
 		}
 		err = exec.Command("git", "tag", "v"+raw_version).Run()
+		if err != nil {
+			return fmt.Errorf("Failure git tag: %v", err)
+		}
+
+		need_build, err := cmd.Flags().GetBool(_BUILD_FLAG)
 		if err != nil {
 			return err
 		}
 
-		fmt.Println("You need to build the project yourself")
+		if need_build {
+			return BuildCommand.RunE(cmd, args)
+		}
+
 		return nil
 	},
 }
 
+const _BUILD_FLAG = "build"
+const _BUILD_FLAG_P = "b"
+
 func init() {
+	addBuildFlag(VersionCommand)
+	VersionCommand.Flags().BoolP(_BUILD_FLAG, _BUILD_FLAG_P, false, "Build app")
 	RootCommand.AddCommand(VersionCommand)
 }
