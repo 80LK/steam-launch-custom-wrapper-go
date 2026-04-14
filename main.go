@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/hajimehoshi/go-steamworks"
 	"github.com/spf13/cobra"
@@ -196,7 +197,7 @@ func buildPSArray(args []string) string {
 	return "@(" + strings.Join(escaped, ",") + ")"
 }
 
-const DETACHED_PROCESS = 0x00000008
+const CREATE_NO_WINDOW = 0x08000000
 
 func ElevateRun(exe string, workdir string, args []string) *exec.Cmd {
 	command := "Start-Process -FilePath '" + exe + "' " +
@@ -210,6 +211,9 @@ func ElevateRun(exe string, workdir string, args []string) *exec.Cmd {
 		command,
 	)
 
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW,
+	}
 	return cmd
 }
 
