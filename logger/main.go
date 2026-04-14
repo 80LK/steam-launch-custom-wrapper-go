@@ -59,7 +59,7 @@ func (l *logger) getPrefixLine(level string) string {
 func (l *logger) write(level, content string) {
 	prefix := l.getPrefixLine(level)
 	fmt.Println(prefix, content)
-	logFile.Write([]byte(prefix + " " + content))
+	logFile.Write([]byte(prefix + " " + content + "\n"))
 }
 
 func (l *logger) log(level string, args ...any) {
