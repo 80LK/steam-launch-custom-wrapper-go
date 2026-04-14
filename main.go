@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	Logger "steam-launch-custom/wrapper/logger"
 	"strconv"
 	"strings"
 	"syscall"
@@ -33,40 +34,44 @@ var rootCmd = &cobra.Command{
 	Short: "slc_wrapper - Steam-Launch-Custom Wrapper",
 	Long: `slc_wrapper	Steam-Launch-Custom Wrapper.
 	Usage for startup apps how steam game`,
-	Args: cobra.MinimumNArgs(1),
+	Args:    cobra.MinimumNArgs(1),
+	Version: VERSION,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		logger := Logger.NewLoggerP("slc_wrapper")
+
 		AppId, err := cmd.Flags().GetInt(FLAG_APP_ID)
 		if err != nil {
-			return err
+			return logger.ErrorR("Failed parse app id:", err).(error)
 		}
 
 		WorkDir, err := cmd.Flags().GetString(FLAG_WORKDIR)
 		if err != nil {
-			return err
+			return logger.ErrorR("Failed parse workdir:", err).(error)
 		}
 
 		Executable, err := filepath.Abs(args[0])
 		if err != nil {
-			return err
+			return logger.ErrorFR("Failed get absolute path for executable %s: %s", args[0], err).(error)
 		}
 		if WorkDir == DEFAULT_WORKDIR {
 			WorkDir = filepath.Dir(Executable)
+			logger.Warn("Workdir is empty, set as ", WorkDir)
 		}
 		Args := args[1:]
 
 		if err := ValidateExecute(Executable); err != nil {
-			return err
+			return logger.ErrorFR("Failed validate executable \"%s\": %s", Executable, err).(error)
 		}
 		if err := ValidateWorkDir(WorkDir); err != nil {
-			return err
+			return logger.ErrorFR("Failed validate workdir \"%s\":%s", WorkDir, err).(error)
 		}
 
 		if err := SteamWorksInit(AppId); err != nil {
-			return err
+			return logger.ErrorR("Failed init Steamwork:", err).(error)
 		}
 
 		if err := Run(Executable, WorkDir, Args); err != nil {
-			return err
+			return logger.ErrorR("Failed run:", err).(error)
 		}
 
 		return nil
@@ -118,7 +123,6 @@ func SteamWorksInit(appId int) error {
 		return nil
 	}
 
-	fmt.Println("Try init steam sdk")
 	if err := os.Setenv(STEAM_APP_ID_ENV_KEY, strconv.Itoa(appId)); err != nil {
 		return err
 	}
@@ -137,10 +141,11 @@ func Run(execute string, workdir string, args []string) error {
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 
-	fmt.Printf("Try run \"%s\" in directory \"%s\" with arguments [%s]\n", execute, workdir, strings.Join(args, ", "))
+	logger := Logger.NewLoggerP("runner")
+	logger.LogF("Try run \"%s\" in directory \"%s\" with arguments [%s]\n", execute, workdir, strings.Join(args, ", "))
 	if err := cmd.Start(); err != nil {
 		if IsRequiresElevationError(err) {
-			fmt.Printf("Run requires elevation, retrying with ElevateRun for \"%s\"\n", execute)
+			logger.LogF("Run requires elevation, retrying with ElevateRun for \"%s\"\n", execute)
 			elevated_cmd := ElevateRun(execute, workdir, args)
 			if err := elevated_cmd.Start(); err != nil {
 				return err
