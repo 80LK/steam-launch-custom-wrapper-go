@@ -35,15 +35,12 @@ func initLogFile() error {
 
 	if _, err := os.Stat(path); err == nil {
 		bckPath := path + ".bck"
-		err = os.Remove(bckPath)
-		if err != nil {
-			return err
-		}
+		_ = os.Remove(bckPath)
 		err = os.Rename(path, bckPath)
 		if err != nil {
 			return err
 		}
-	} else {
+	} else if !os.IsNotExist(err) {
 		return err
 	}
 
@@ -128,7 +125,7 @@ func (l *logger) ErrorFR(format string, a ...any) any {
 
 func getAppDataPath(file string) string {
 	base := os.Getenv("APPDATA")
-	appData := filepath.Join(base, "80LK", "steam-launch-custom", file)
+	appData := filepath.Join(base, "80LK", "steam-launch-custom")
 
 	if filepath.IsAbs(file) {
 		file = "." + file
