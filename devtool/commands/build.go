@@ -21,7 +21,7 @@ var BuildCommand = &cobra.Command{
 			return err
 		}
 
-		var build = exec.Command("go", "build", "-ldflags", "-H=windowsgui", "-o", output)
+		var build = exec.Command("go", "build", "-o", output)
 
 		build.Stdout = os.Stdout
 		build.Stderr = os.Stderr
