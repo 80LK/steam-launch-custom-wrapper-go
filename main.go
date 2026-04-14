@@ -142,10 +142,10 @@ func Run(execute string, workdir string, args []string) error {
 	cmd.Stdin = os.Stdin
 
 	logger := Logger.NewLoggerP("runner")
-	logger.LogF("Try run \"%s\" in directory \"%s\" with arguments [%s]\n", execute, workdir, strings.Join(args, ", "))
+	logger.LogF("Try run \"%s\" in directory \"%s\" with arguments [%s]", execute, workdir, strings.Join(args, ", "))
 	if err := cmd.Start(); err != nil {
 		if IsRequiresElevationError(err) {
-			logger.LogF("Run requires elevation, retrying with ElevateRun for \"%s\"\n", execute)
+			logger.LogF("Run requires elevation, retrying with ElevateRun for \"%s\"", execute)
 			elevated_cmd := ElevateRun(execute, workdir, args)
 			if err := elevated_cmd.Start(); err != nil {
 				return err

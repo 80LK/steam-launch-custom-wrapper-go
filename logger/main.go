@@ -49,20 +49,21 @@ func initLogFile() error {
 }
 
 func (l *logger) getPrefixLine(level string) string {
-	return fmt.Sprintf("[%s][%s][%s]",
+	return fmt.Sprintf("[%s] [%s] [%s]",
 		time.Now().Format("2006-01-02 15:04:05"),
 		strings.ToUpper(l.Prefix),
 		strings.ToUpper(level),
 	)
 }
 
-func (l *logger) write(prefix, content string) {
-	fmt.Print(prefix, content)
+func (l *logger) write(level, content string) {
+	prefix := l.getPrefixLine(level)
+	fmt.Println(prefix, content)
 	logFile.Write([]byte(prefix + " " + content))
 }
 
 func (l *logger) log(level string, args ...any) {
-	l.write(level, fmt.Sprintln(args...))
+	l.write(level, fmt.Sprint(args...))
 }
 
 func (l *logger) logF(level, format string, args ...any) {
