@@ -25,8 +25,15 @@ func getVersion() (int, int, int, error) {
 	return major, minor, patch, nil
 }
 
-func patch() {
+type VersionPart string
 
+const (
+	Patch VersionPart = "patch"
+	Major VersionPart = "Major"
+	Minor VersionPart = "Minor"
+)
+
+func version(m VersionPart) {
 	var gitStatus, _ = exec.Command("git", "status", "--porcelain=v1", "-uno").Output()
 	if len(gitStatus) != 0 {
 		fmt.Println("Git working directory not clean.")
@@ -35,7 +42,17 @@ func patch() {
 
 	var major, minor, patch, _ = getVersion()
 
-	patch += 1
+	switch m {
+	case Patch:
+		patch += 1
+	case Minor:
+		patch = 0
+		minor += 1
+	case Major:
+		patch = 0
+		minor = 0
+		major += 1
+	}
 	var version = strconv.Itoa(major) + "." + strconv.Itoa(minor) + "." + strconv.Itoa(patch)
 	os.WriteFile(VERSION_FILE, []byte(version), 0644)
 

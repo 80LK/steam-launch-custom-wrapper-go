@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 )
 
@@ -12,7 +13,15 @@ func main() {
 		build()
 		return
 	case "patch":
-		patch()
+		version(Patch)
 		return
+	case "minor":
+		version(Minor)
+		return
+	case "major":
+		version(Major)
+		return
+	default:
+		fmt.Printf("Unknwon command: %s", cmd)
 	}
 }
