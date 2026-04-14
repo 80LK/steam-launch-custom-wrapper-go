@@ -6,76 +6,137 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
+
+	"github.com/hajimehoshi/go-steamworks"
+	"github.com/spf13/cobra"
 )
 
-const WD_FLAG = "--wd"
-const WD_FLAG_EQ = WD_FLAG + "="
-
-// go:embed go.ver
+//go:embed go.ver
 var VERSION string
 
-func prepareArgs() (bool, string, string, []string) {
-	var os_args = os.Args[1:]
+const STEAM_APP_ID_ENV_KEY = "SteamAppId"
+const FLAG_WORKDIR = "workdir"
+const P_FLAG_WORKDIR = "w"
+const DEFAULT_WORKDIR = ""
+const FLAG_APP_ID = "app"
+const P_FLAG_APP_ID = "a"
+const DEFAULT_APP_ID = 0
 
-	var execute string = ""
-	var workdir string = ""
-	var args = []string{}
-
-	if len(os_args) == 0 {
-		return false, execute, workdir, args
-	}
-
-	var nextWorkDir = false
-	var foundedExecute = false
-	for _, arg := range os_args {
-		if arg == WD_FLAG {
-			nextWorkDir = true
-			continue
+var rootCmd = &cobra.Command{
+	Use:   "slc_wrapper <executable> [arguments...]",
+	Short: "slc_wrapper - Steam-Launch-Custom Wrapper",
+	Long: `slc_wrapper	Steam-Launch-Custom Wrapper.
+	Usage for startup apps how steam game`,
+	Args: cobra.MinimumNArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		AppId, err := cmd.Flags().GetInt(FLAG_APP_ID)
+		if err != nil {
+			return err
 		}
 
-		if nextWorkDir {
-			nextWorkDir = false
-			workdir, _ = filepath.Abs(arg)
-			continue
+		WorkDir, err := cmd.Flags().GetString(FLAG_WORKDIR)
+		if err != nil {
+			return err
 		}
 
-		if strings.HasPrefix(arg, WD_FLAG_EQ) {
-			arg, _ = strings.CutPrefix(arg, WD_FLAG_EQ)
-			workdir, _ = filepath.Abs(arg)
-			continue
+		Executable, err := filepath.Abs(args[0])
+		if err != nil {
+			return err
+		}
+		if WorkDir == DEFAULT_WORKDIR {
+			WorkDir = filepath.Dir(Executable)
+		}
+		Args := args[1:]
+
+		if err := ValidateExecute(Executable); err != nil {
+			return err
+		}
+		if err := ValidateWorkDir(WorkDir); err != nil {
+			return err
 		}
 
-		if !foundedExecute {
-			execute, _ = filepath.Abs(arg)
-			if workdir == "" {
-				workdir = filepath.Dir(execute)
-			}
-			foundedExecute = true
-			continue
+		if err := SteamWorksInit(AppId); err != nil {
+			return err
 		}
 
-		args = append(args, arg)
-	}
+		if err := Run(Executable, WorkDir, Args); err != nil {
+			return err
+		}
 
-	return foundedExecute, execute, workdir, args
+		return nil
+	},
 }
 
-func main() {
-	var parsed, execute, workdir, args = prepareArgs()
-	if !parsed {
-		fmt.Printf("Steam-Launch-Custom-Wrapper %s\nUsage:\n\twrapper [execute] <--wd=[wordir]> <launch args>", VERSION)
-		return
+func CheckExsist(_t string, path string) (os.FileInfo, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("%s path \"%s\" is not exsist", _t, path)
+		}
+		return nil, err
 	}
 
+	return info, nil
+}
+
+func ValidateExecute(path string) error {
+	const _t = "Executable"
+	info, err := CheckExsist(_t, path)
+	if err != nil {
+		return err
+	}
+
+	if info.IsDir() {
+		return fmt.Errorf("%s path \"%s\" is Directory", _t, path)
+	}
+
+	return nil
+}
+
+func ValidateWorkDir(path string) error {
+	const _t = "WorkDir"
+	info, err := CheckExsist(_t, path)
+	if err != nil {
+		return err
+	}
+
+	if info.IsDir() {
+		return nil
+	}
+
+	return fmt.Errorf("%s path \"%s\" is not Directory", _t, path)
+}
+
+func SteamWorksInit(appId int) error {
+	fmt.Println("Try init steam sdk")
+	if appId != DEFAULT_APP_ID {
+		if err := os.Setenv(STEAM_APP_ID_ENV_KEY, strconv.Itoa(appId)); err != nil {
+			return err
+		}
+	}
+
+	if err := steamworks.Init(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func Run(execute string, workdir string, args []string) error {
 	var cmd = exec.Command(execute, args...)
 	cmd.Dir = workdir
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	fmt.Printf(`Run "%s" in directory "%s" with arguments [%s]`, execute, workdir, strings.Join(args, ", "))
-	if err := cmd.Run(); err != nil {
-		fmt.Println("Error:", err)
-	}
+	fmt.Printf("Try run \"%s\" in directory \"%s\" with arguments [%s]\n", execute, workdir, strings.Join(args, ", "))
+	return cmd.Run()
+}
+
+func main() {
+	rootCmd.Flags().IntP(FLAG_APP_ID, P_FLAG_APP_ID, DEFAULT_APP_ID, "usage steam app")
+	rootCmd.Flags().StringP(FLAG_WORKDIR, P_FLAG_WORKDIR, DEFAULT_WORKDIR, "usage workdir")
+	rootCmd.Execute()
 }
