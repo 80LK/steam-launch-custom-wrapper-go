@@ -25,6 +25,7 @@ const DEFAULT_WORKDIR = ""
 const FLAG_APP_ID = "app"
 const P_FLAG_APP_ID = "a"
 const DEFAULT_APP_ID = 0
+const ERR_REQUIRES_ELEVATION = "The requested operation requires elevation."
 
 var rootCmd = &cobra.Command{
 	Use:   "slc_wrapper <executable> [arguments...]",
@@ -112,13 +113,14 @@ func ValidateWorkDir(path string) error {
 }
 
 func SteamWorksInit(appId int) error {
-	fmt.Println("Try init steam sdk")
-	if appId != DEFAULT_APP_ID {
-		if err := os.Setenv(STEAM_APP_ID_ENV_KEY, strconv.Itoa(appId)); err != nil {
-			return err
-		}
+	if appId == DEFAULT_APP_ID {
+		return nil
 	}
 
+	fmt.Println("Try init steam sdk")
+	if err := os.Setenv(STEAM_APP_ID_ENV_KEY, strconv.Itoa(appId)); err != nil {
+		return err
+	}
 	if err := steamworks.Init(); err != nil {
 		return err
 	}
@@ -136,6 +138,14 @@ func Run(execute string, workdir string, args []string) error {
 
 	fmt.Printf("Try run \"%s\" in directory \"%s\" with arguments [%s]\n", execute, workdir, strings.Join(args, ", "))
 	if err := cmd.Start(); err != nil {
+		if IsRequiresElevationError(err) {
+			fmt.Printf("Run requires elevation, retrying with ElevateRun for \"%s\"\n", execute)
+			elevated_cmd := ElevateRun(execute, workdir, args)
+			if err := elevated_cmd.Start(); err != nil {
+				return err
+			}
+		}
+
 		return err
 	}
 
@@ -166,6 +176,41 @@ func Run(execute string, workdir string, args []string) error {
 
 		return nil
 	}
+}
+
+func IsRequiresElevationError(err error) bool {
+	return err != nil && strings.Contains(err.Error(), ERR_REQUIRES_ELEVATION)
+}
+
+func buildPSArray(args []string) string {
+	if len(args) == 0 {
+		return "NULL"
+	}
+	escaped := make([]string, len(args))
+
+	for i, a := range args {
+		a = strings.ReplaceAll(a, "'", "''")
+		escaped[i] = "'" + a + "'"
+	}
+
+	return "@(" + strings.Join(escaped, ",") + ")"
+}
+
+const DETACHED_PROCESS = 0x00000008
+
+func ElevateRun(exe string, workdir string, args []string) *exec.Cmd {
+	command := "Start-Process -FilePath '" + exe + "' " +
+		"-ArgumentList " + buildPSArray(args) + " " +
+		"-WorkingDirectory '" + workdir + "' " +
+		`-Verb RunAs`
+
+	cmd := exec.Command(
+		"powershell",
+		"-Command",
+		command,
+	)
+
+	return cmd
 }
 
 func main() {
