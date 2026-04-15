@@ -1,4 +1,4 @@
-module devtool
+module steam-launch-custom/wrapper/devtool
 
 go 1.23.0
 

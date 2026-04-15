@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"devtool/version"
+	"steam-launch-custom/wrapper/devtool/version"
 
 	"github.com/spf13/cobra"
 )
